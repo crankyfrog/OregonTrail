@@ -17,25 +17,35 @@ health = 100
 food = 100
 ammo = 50
 spare_parts = 3
-party = ["Alice", "Bob", "Charlie"]
+medicine = 2
+party = {
+    "Alice": 100,
+    "Bob": 100,
+    "Charlie": 100
+}
+
+landmarks = {20: "Trading Post", 40: "River", 60: "Fort", 80: "River"}
 
 # Events: (text, food_change, health_change, ammo_change, spare_parts_change)
 events = [
     ("You found extra food!", 15, 0, 0, 0),
-    ("A river slowed you down.", -2, 0, 0, 0),
+    ("A storm slowed you down.", -2, -5, 0, 0),
     ("Dysentery hits your party!", -10, -20, 0, 0),
     ("All is calm today.", 0, 0, 0, 0),
     ("You hunted successfully and got food.", 20, 0, -5, 0),
     ("Broken wagon wheel! You lost some supplies.", -5, 0, 0, -1),
-    ("Bandits stole some supplies!", -10, -5, -5, 0),
-    ("Storm slowed your travel.", -3, -5, 0, 0)
+    ("Bandits stole some supplies!", -10, -5, -5, 0)
 ]
 
 # -------------------- Functions --------------------
+def pause():
+    input(GREEN + "\nPress Enter to continue..." + RESET)
+
 def print_status():
     print(CLEAR)
-    print(GREEN + f"Day {days} | Miles: {miles}/{max_miles} | Health: {health} | Food: {food} | Ammo: {ammo} | Spare Parts: {spare_parts}")
-    print(f"Party: {', '.join(party)}" + RESET)
+    print(GREEN + f"Day {days} | Miles: {miles}/{max_miles} | Health: {health} | Food: {food} | Ammo: {ammo} | Spare Parts: {spare_parts} | Medicine: {medicine}")
+    party_status = ", ".join([f"{name}:{hp}" for name, hp in party.items()])
+    print(f"Party: {party_status}" + RESET)
 
 def ascii_wagon():
     wagon = GREEN + r"""
@@ -55,29 +65,38 @@ def travel():
     global miles, food
     travel_distance = random.randint(5, 15)
     miles += travel_distance
-    food -= random.randint(5, 10)
-    print(GREEN + f"\nYou traveled {travel_distance} miles." + RESET)
+    food_loss = random.randint(5, 10)
+    food -= food_loss
+    print(GREEN + f"\nYou traveled {travel_distance} miles and used {food_loss} food." + RESET)
+    pause()
 
 def rest():
     global health, food
     heal = random.randint(5, 15)
     health += heal
-    food -= random.randint(2, 5)
-    print(GREEN + f"\nYou rested and regained {heal} health." + RESET)
+    food_loss = random.randint(2, 5)
+    food -= food_loss
+    print(GREEN + f"\nYou rested and regained {heal} health. Food used: {food_loss}" + RESET)
+    pause()
 
 def hunt():
     global food, ammo
     if ammo <= 0:
         print(GREEN + "\nYou have no ammo to hunt!" + RESET)
+        pause()
         return
+    print(GREEN + "\nHunting... Press Enter at the right moment to shoot!" + RESET)
+    pause()
     success = random.choice([True, False])
-    ammo -= random.randint(2, 5)
+    ammo_loss = random.randint(2, 5)
+    ammo -= ammo_loss
     if success:
         gained = random.randint(10, 30)
         food += gained
-        print(GREEN + f"\nHunt successful! Gained {gained} food." + RESET)
+        print(GREEN + f"Hunt successful! Gained {gained} food. Ammo used: {ammo_loss}" + RESET)
     else:
-        print(GREEN + "\nHunt failed, ammo spent." + RESET)
+        print(GREEN + f"Hunt failed. Ammo used: {ammo_loss}" + RESET)
+    pause()
 
 def river_crossing():
     global health, spare_parts, miles
@@ -100,11 +119,30 @@ def river_crossing():
             print(GREEN + "No spare parts! Forced to wait." + RESET)
             health -= 5
     elif choice == "w":
-        print(GREEN + "You waited a day. Nothing happened." + RESET)
+        print(GREEN + "You waited a day. Food decreased." + RESET)
         food -= 5
     else:
         print(GREEN + "Invalid choice, you lost a day." + RESET)
         food -= 5
+    pause()
+
+def trading_post():
+    global food, ammo, spare_parts, medicine
+    print(GREEN + "\nWelcome to the Trading Post!" + RESET)
+    print(f"Inventory: Food: {food}, Ammo: {ammo}, Spare Parts: {spare_parts}, Medicine: {medicine}")
+    print("You can buy supplies (food=10, ammo=5, spare=3, medicine=2 each)")
+    choice = input("Buy (F)ood, (A)mmo, (S)pare, (M)edicine, or (N)othing? ").lower()
+    if choice == "f":
+        food += 10
+    elif choice == "a":
+        ammo += 5
+    elif choice == "s":
+        spare_parts += 3
+    elif choice == "m":
+        medicine += 2
+    else:
+        print("Nothing purchased.")
+    pause()
 
 def random_event():
     global food, health, ammo, spare_parts
@@ -115,21 +153,38 @@ def random_event():
     ammo += a_change
     spare_parts += s_change
     print(GREEN + f"\nEvent: {text}" + RESET)
+    pause()
 
 def check_status():
-    global health, food
-    if health <= 0:
-        game_over("Your party has perished due to illness or injury.")
+    global health, food, party
+    for name in list(party.keys()):
+        if party[name] <= 0:
+            print(GREEN + f"{name} has died." + RESET)
+            del party[name]
+            pause()
+    if health <= 0 or len(party) == 0:
+        game_over("Your party has perished.")
     if food <= 0:
         game_over("You ran out of food and starved.")
 
 # -------------------- Main Loop --------------------
-print(GREEN + "\nWelcome to Oregon Trail CLI Deluxe!" + RESET)
-time.sleep(1)
+print(GREEN + "\nWelcome to Oregon Trail CLI Ultimate Edition!" + RESET)
+pause()
 
 while miles < max_miles:
     print_status()
     ascii_wagon()
+    if miles in landmarks:
+        landmark = landmarks[miles]
+        if landmark == "Trading Post":
+            trading_post()
+        elif landmark == "River":
+            river_crossing()
+        elif landmark == "Fort":
+            print(GREEN + "\nYou arrived at a Fort. Health restored slightly." + RESET)
+            health += 10
+            pause()
+    
     print("\nActions: (T)ravel, (R)est, (H)unt, (C)ross River")
     action = input("Choose action: ").lower()
     
@@ -143,13 +198,12 @@ while miles < max_miles:
         river_crossing()
     else:
         print(GREEN + "\nInvalid choice. You lost a day." + RESET)
+        pause()
     
-    # Random event
     random_event()
     check_status()
     
     days += 1
-    time.sleep(1)
 
 # Win condition
 print_status()
